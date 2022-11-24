@@ -41,7 +41,54 @@ function verifyJWT(req, res, next) {
 async function run() {
 
     try {
-        const appointmentOption = client.db("OldMarket").collection("brandCollection");
+        const brandCollection = client.db("OldMarket").collection("brandCollection");
+        const usersCollection = client.db("OldMarket").collection("usersCollection");
+
+        // this api for home page brand image 
+        app.get('/brands/home', async (req, res) => {
+            const query = {};
+            const result = await brandCollection.find(query).limit(5).toArray();
+            res.send(result)
+        })
+
+        // this api for brands page brand image
+
+        app.get('/brands', async (req, res) => {
+            const query = {};
+            const result = await brandCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        // this section for user login and registration 
+
+        app.post('/addUsers', async (req, res) => {
+            const user = req.body;
+            const result = await usersCollection.insertOne(user);
+            res.send(result)
+        })
+
+        // this is user token 
+
+        app.post('/user/jwt', (req, res) => {
+            const user = (req.body)
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN)
+            res.send({ token })
+            // console.log(user)
+        })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }
     finally {
 
