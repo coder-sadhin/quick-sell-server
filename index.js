@@ -43,6 +43,8 @@ async function run() {
     try {
         const brandCollection = client.db("OldMarket").collection("brandCollection");
         const usersCollection = client.db("OldMarket").collection("usersCollection");
+        const geoLocation = client.db("OldMarket").collection("geoLocation");
+        const productsCollection = client.db("OldMarket").collection("productsCollection");
 
         // this api for home page brand image 
         app.get('/brands/home', async (req, res) => {
@@ -56,6 +58,15 @@ async function run() {
         app.get('/brands', async (req, res) => {
             const query = {};
             const result = await brandCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        // this is for product collection 
+
+        app.post('/product', async (req, res) => {
+            const product = req.body;
+            console.log(product)
+            const result = await productsCollection.insertOne(product)
             res.send(result)
         })
 
@@ -98,7 +109,12 @@ async function run() {
 
 
 
-
+        // this section for add product 
+        app.get('/geoLocation', async (req, res) => {
+            const query = {};
+            const result = await geoLocation.find(query).toArray();
+            res.send(result)
+        })
 
 
 
