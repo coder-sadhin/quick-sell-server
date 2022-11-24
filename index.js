@@ -67,6 +67,21 @@ async function run() {
             res.send(result)
         })
 
+        // this is check user type 
+        app.get('/checkuser', async (req, res) => {
+            const email = req.query.email;
+            const query = {
+                email: email
+            }
+            const user = await usersCollection.findOne(query)
+            if (!user) {
+                return
+            }
+            const userType = user.userType;
+            // console.log(userType)
+            res.json(userType);
+        })
+
         // this is user token 
 
         app.post('/user/jwt', (req, res) => {
