@@ -44,6 +44,9 @@ async function run() {
         const usersCollection = client.db("OldMarket").collection("usersCollection");
         const geoLocation = client.db("OldMarket").collection("geoLocation");
         const productsCollection = client.db("OldMarket").collection("productsCollection");
+        const bookingCollection = client.db("OldMarket").collection("bookingCollection");
+        const wishListCollection = client.db("OldMarket").collection("wishListCollection");
+        const reportCollection = client.db("OldMarket").collection("reportCollection");
 
         function verifySeller(req, res, next) {
             const decoded = req.decoded;
@@ -121,7 +124,7 @@ async function run() {
             }
             const result = await productsCollection.findOne(query);
             res.send(result)
-            console.log(result)
+            // console.log(result)
         })
 
 
@@ -167,12 +170,38 @@ async function run() {
             // console.log(user)
         })
 
+        // bookingCollection
+
+        app.post('/booking', verifyJWT, async (req, res) => {
+            const booking = req.body;
+            const result = await bookingCollection.insertOne(booking);
+            res.send(result)
+        })
 
 
+        app.post('/addWish', verifyJWT, async (req, res) => {
+            //     const booking = req.body;
+            const decoded = req.decoded;
+            const email = decoded.email;
+            const id = req.query.id;
+            //     // const email = decoded.email;
+            const wishList = { email, id }
+            // console.log('hit korache', wishList)
+            const result = await wishListCollection.insertOne(wishList);
+            res.send(result)
+        })
 
-
-
-
+        app.post('/addReport', verifyJWT, async (req, res) => {
+            //     const booking = req.body;
+            const decoded = req.decoded;
+            const email = decoded.email;
+            const id = req.query.id;
+            //     // const email = decoded.email;
+            const wishList = { email, id }
+            // console.log('hit korache', wishList)
+            const result = await reportCollection.insertOne(wishList);
+            res.send(result)
+        })
 
         // this section for add product 
         app.get('/geoLocation', async (req, res) => {
