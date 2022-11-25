@@ -23,14 +23,13 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-        console.log('26')
         return res.status(401).send('UnAuthorized Access')
     }
     const token = authHeader.split(' ')[1];
     // console.log(token)
     jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
         if (err) {
-            console.log('33')
+            console.log('token a somossa')
             return res.status(403).send({ Massage: 'Forbidden Access' })
         }
         req.decoded = decoded;
@@ -45,6 +44,18 @@ async function run() {
         const usersCollection = client.db("OldMarket").collection("usersCollection");
         const geoLocation = client.db("OldMarket").collection("geoLocation");
         const productsCollection = client.db("OldMarket").collection("productsCollection");
+
+        function verifySeller(req, res, next) {
+            const decoded = req.decoded;
+            if (decoded.userType !== 'seller') {
+                return res.status(403).send('Forbeeden access')
+                console.log('apni ki seller non')
+            }
+            next()
+        }
+
+
+
 
         // this api for home page brand image 
         app.get('/brands/home', async (req, res) => {
@@ -63,11 +74,65 @@ async function run() {
 
         // this is for product collection 
 
-        app.post('/product', async (req, res) => {
-            const product = req.body;
-            console.log(product)
-            const result = await productsCollection.insertOne(product)
+        app.post('/product', verifyJWT, verifySeller, async (req, res) => {
+            const data = req.body;
+            // console.log(data)
+            const result = await productsCollection.insertOne(data)
             res.send(result)
+        })
+
+        app.get('/allProduct', async (req, res) => {
+            const result = await productsCollection.find({}).toArray();
+            res.send(result)
+        })
+
+        app.get('/myProducts', verifyJWT, verifySeller, async (req, res) => {
+            const email = req.decoded.email;
+            const query = {
+                sellerEmail: email
+            }
+            const result = await productsCollection.find(query).toArray();
+            res.send(result)
+            // console.log(result, email)
+        })
+
+        app.delete('/myProducts', verifyJWT, verifySeller, async (req, res) => {
+            const id = req.query.id;
+            // console.log(id)
+            const query = { _id: ObjectId(id) };
+            const result = await productsCollection.deleteOne(query);
+            res.send(result)
+        })
+
+        app.get('/brand/:brandName', async (req, res) => {
+            const brandName = req.params.brandName;
+            // console.log(brandName)
+            const query = {
+                brand: brandName
+            }
+            const result = await productsCollection.find(query).toArray();
+            res.send({ result, brandName })
+        })
+
+        app.get('/details/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = {
+                _id: ObjectId(id)
+            }
+            const result = await productsCollection.findOne(query);
+            res.send(result)
+            console.log(result)
+        })
+
+
+        // this is for all user api 
+        app.get('/allUser', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            if (decoded.userType !== 'admin') {
+                return res.status(403).send('Forbeeden access')
+            }
+            const users = await usersCollection.find({}).toArray();
+            res.send(users);
         })
 
         // this section for user login and registration 
@@ -79,17 +144,17 @@ async function run() {
         })
 
         // this is check user type 
-        app.get('/checkuser', async (req, res) => {
+        app.get('/checkuser/type', async (req, res) => {
             const email = req.query.email;
             const query = {
                 email: email
             }
             const user = await usersCollection.findOne(query)
             if (!user) {
-                return
+                return res.status(401).send('not verify')
             }
             const userType = user.userType;
-            // console.log(userType)
+            // console.log(user)
             res.json(userType);
         })
 
