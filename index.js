@@ -51,6 +51,15 @@ async function run() {
         const adverticeCollection = client.db("OldMarket").collection("adverticeCollection");
         const sellCollection = client.db("OldMarket").collection("sellCollection");
 
+
+        function verifyAdmin(req, res, next) {
+            const decoded = req.decoded;
+            if (decoded.userType !== 'admin') {
+                return res.status(403).send('Forbeeden access')
+            }
+            next()
+        }
+
         function verifySeller(req, res, next) {
             const decoded = req.decoded;
             if (decoded.userType !== 'seller') {
@@ -84,7 +93,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/allProduct', async (req, res) => {
+        app.get('/allProduct', verifyJWT, verifyAdmin, async (req, res) => {
             const result = await productsCollection.find({}).toArray();
             res.send(result)
         })
@@ -151,14 +160,28 @@ async function run() {
 
 
         // this is for all user api 
-        app.get('/allUser', verifyJWT, async (req, res) => {
-            const decoded = req.decoded;
-            if (decoded.userType !== 'admin') {
-                return res.status(403).send('Forbeeden access')
-            }
-            const users = await usersCollection.find({}).toArray();
-            const remaining = users.find(user => user.userType !== 'admin')
-            res.send(remaining);
+        app.get('/allUser', verifyJWT, verifyAdmin, async (req, res) => {
+            const usersFromCollection = await usersCollection.find({}).toArray();
+            const users = usersFromCollection.filter(user => user.userType !== 'admin')
+            // console.log(users)
+            res.send(users);
+        })
+
+        app.get('/allSeller', verifyJWT, verifyAdmin, async (req, res) => {
+            const usersFromCollection = await usersCollection.find({}).toArray();
+            const users = usersFromCollection.filter(user => user.userType === 'seller')
+            // console.log(users)
+            res.send(users);
+        })
+
+        // seller verification section 
+        app.put('/sellerVerify/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            // const id = req.query.id;
+            console.log('hit koracha')
+            // const usersFromCollection = await usersCollection.find({}).toArray();
+            // const users = usersFromCollection.filter(user => user.userType === 'seller')
+            // // console.log(users)
+            // res.send(users);
         })
 
         // this section for user login and registration 
@@ -292,7 +315,7 @@ async function run() {
         // delete reported item api here 
 
 
-        app.delete('/reportItem', verifyJWT, async (req, res) => {
+        app.delete('/reportItem', verifyJWT, verifyAdmin, async (req, res) => {
             const info = req.body;
             console.log('hit koracha', info)
             // const query = { _id: ObjectId(id) };
