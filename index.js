@@ -47,6 +47,7 @@ async function run() {
         const bookingCollection = client.db("OldMarket").collection("bookingCollection");
         const wishListCollection = client.db("OldMarket").collection("wishListCollection");
         const reportCollection = client.db("OldMarket").collection("reportCollection");
+        const adverticeCollection = client.db("OldMarket").collection("adverticeCollection");
 
         function verifySeller(req, res, next) {
             const decoded = req.decoded;
@@ -104,6 +105,28 @@ async function run() {
             // console.log(id)
             const query = { _id: ObjectId(id) };
             const result = await productsCollection.deleteOne(query);
+            const alreadyInter = await adverticeCollection.findOne(query);
+            if (alreadyInter) {
+                const deleteAdv = await adverticeCollection.deleteOne(query);
+            }
+            res.send(result)
+        })
+
+        // advertise section 
+
+
+        app.get('/advertise', verifyJWT, verifySeller, async (req, res) => {
+            const id = req.query.id;
+            const query = { _id: ObjectId(id) };
+
+            const findItem = await productsCollection.findOne(query);
+            // console.log(result)
+            const alreadyInter = await adverticeCollection.findOne(query);
+            const massage = 'Already Avertice This Item';
+            if (alreadyInter) {
+                return res.json(massage)
+            };
+            const result = await adverticeCollection.insertOne(findItem);
             res.send(result)
         })
 
@@ -135,7 +158,8 @@ async function run() {
                 return res.status(403).send('Forbeeden access')
             }
             const users = await usersCollection.find({}).toArray();
-            res.send(users);
+            const remaining = users.find(user => user.userType !== 'admin')
+            res.send(remaining);
         })
 
         // this section for user login and registration 
@@ -179,29 +203,51 @@ async function run() {
         })
 
 
+        app.get('/booking', verifyJWT, async (req, res) => {
+            const query = {};
+            const result = await bookingCollection.find(query).toArray();
+            res.send(result)
+        })
+
+
         app.post('/addWish', verifyJWT, async (req, res) => {
-            //     const booking = req.body;
+            const wishInfo = req.body;
             const decoded = req.decoded;
             const email = decoded.email;
-            const id = req.query.id;
-            //     // const email = decoded.email;
-            const wishList = { email, id }
+            wishInfo.buyerEmail = email;
             // console.log('hit korache', wishList)
-            const result = await wishListCollection.insertOne(wishList);
+            const result = await wishListCollection.insertOne(wishInfo);
             res.send(result)
         })
 
         app.post('/addReport', verifyJWT, async (req, res) => {
-            //     const booking = req.body;
-            const decoded = req.decoded;
-            const email = decoded.email;
-            const id = req.query.id;
-            //     // const email = decoded.email;
-            const wishList = { email, id }
-            // console.log('hit korache', wishList)
-            const result = await reportCollection.insertOne(wishList);
+            const reportInfo = req.body;
+            const result = await reportCollection.insertOne(reportInfo);
             res.send(result)
         })
+
+        app.get('/reported', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            if (decoded.userType !== 'admin') {
+                return res.status(403).send('Forbeeden access')
+            }
+            const products = await reportCollection.find({}).toArray();
+            res.send(products);
+        })
+
+        // delete reported item api here 
+
+
+        app.delete('/reportItem', verifyJWT, async (req, res) => {
+            const info = req.body;
+            console.log('hit koracha', info)
+            // const query = { _id: ObjectId(id) };
+            // const result = await productsCollection.deleteOne(query);
+            // res.send(result)
+        })
+
+
+
 
         // this section for add product 
         app.get('/geoLocation', async (req, res) => {
