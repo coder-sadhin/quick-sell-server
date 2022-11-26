@@ -204,8 +204,31 @@ async function run() {
 
 
         app.get('/booking', verifyJWT, async (req, res) => {
-            const query = {};
+            const decoded = req.decoded;
+            const email = decoded.email;
+            const query = {
+                buyerEmail: email
+            };
             const result = await bookingCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        app.get('/wishlist', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            const email = decoded.email;
+            const query = {
+                buyerEmail: email
+            };
+            const result = await wishListCollection.find(query).toArray();
+            res.send(result)
+            // console.log(result)
+        })
+
+        app.delete('/wishlist/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            // console.log(id)
+            const query = { productId: id };
+            const result = await wishListCollection.deleteOne(query);
             res.send(result)
         })
 
@@ -216,8 +239,34 @@ async function run() {
             const email = decoded.email;
             wishInfo.buyerEmail = email;
             // console.log('hit korache', wishList)
+            const query = {
+                productId: wishInfo.productId
+            }
+            const itemFound = await wishListCollection.findOne(query);
+            if (itemFound) {
+                return res.json('Already Add To The WishList')
+            }
             const result = await wishListCollection.insertOne(wishInfo);
             res.send(result)
+        })
+
+        app.delete('/addWishToOrder', verifyJWT, async (req, res) => {
+            const productId = req.query.productId;
+            console.log('hit the wish to order', productId)
+            // const wishInfo = req.body;
+            // const decoded = req.decoded;
+            // const email = decoded.email;
+            // wishInfo.buyerEmail = email;
+            // // console.log('hit korache', wishList)
+            // const query = {
+            //     productId: wishInfo.productId
+            // }
+            // const itemFound = await wishListCollection.findOne(query);
+            // if (itemFound) {
+            //     return res.json('Already Add To The WishList')
+            // }
+            // const result = await wishListCollection.insertOne(wishInfo);
+            // res.send(result)
         })
 
         app.post('/addReport', verifyJWT, async (req, res) => {
