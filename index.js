@@ -3,6 +3,7 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const jwt = require('jsonwebtoken');
+const { query } = require('express');
 require('dotenv').config();
 
 const port = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ async function run() {
         const wishListCollection = client.db("OldMarket").collection("wishListCollection");
         const reportCollection = client.db("OldMarket").collection("reportCollection");
         const adverticeCollection = client.db("OldMarket").collection("adverticeCollection");
+        const sellCollection = client.db("OldMarket").collection("sellCollection");
 
         function verifySeller(req, res, next) {
             const decoded = req.decoded;
@@ -57,9 +59,6 @@ async function run() {
             }
             next()
         }
-
-
-
 
         // this api for home page brand image 
         app.get('/brands/home', async (req, res) => {
@@ -199,9 +198,22 @@ async function run() {
         app.post('/booking', verifyJWT, async (req, res) => {
             const booking = req.body;
             const result = await bookingCollection.insertOne(booking);
-            res.send(result)
-        })
+            const productId = booking.productId;
+            const filter = {
+                _id: ObjectId(productId)
+            }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: { paying: 'Unpaid' },
+            }
+            const updateProduct = await productsCollection.updateOne(filter, updateDoc, options);
+            const isertProduct = await sellCollection.insertOne(booking);
 
+            if (isertProduct) {
+                res.send(result)
+            }
+
+        })
 
         app.get('/booking', verifyJWT, async (req, res) => {
             const decoded = req.decoded;
@@ -210,6 +222,17 @@ async function run() {
                 buyerEmail: email
             };
             const result = await bookingCollection.find(query).toArray();
+            res.send(result)
+        })
+
+
+        app.get('/bookingSell', verifyJWT, verifySeller, async (req, res) => {
+            const decoded = req.decoded;
+            const email = decoded.email;
+            const query = {
+                sellerEmail: email
+            };
+            const result = await sellCollection.find(query).toArray();
             res.send(result)
         })
 
@@ -250,24 +273,6 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/addWishToOrder', verifyJWT, async (req, res) => {
-            const productId = req.query.productId;
-            console.log('hit the wish to order', productId)
-            // const wishInfo = req.body;
-            // const decoded = req.decoded;
-            // const email = decoded.email;
-            // wishInfo.buyerEmail = email;
-            // // console.log('hit korache', wishList)
-            // const query = {
-            //     productId: wishInfo.productId
-            // }
-            // const itemFound = await wishListCollection.findOne(query);
-            // if (itemFound) {
-            //     return res.json('Already Add To The WishList')
-            // }
-            // const result = await wishListCollection.insertOne(wishInfo);
-            // res.send(result)
-        })
 
         app.post('/addReport', verifyJWT, async (req, res) => {
             const reportInfo = req.body;
@@ -294,8 +299,6 @@ async function run() {
             // const result = await productsCollection.deleteOne(query);
             // res.send(result)
         })
-
-
 
 
         // this section for add product 
