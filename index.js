@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const nodemailer = require('nodemailer')
 const port = process.env.PORT || 5000;
-const stripe = require("stripe")('sk_test_51M6TOhLZ8s0yewmCKIERlWDqgmuV0dUPMcqr6t68lquLbV9ES0l7wH2zsYyXgZUjwvvhxFeUujmMHDWRGVOZnxSM00E1Hd7kmq');
+const stripe = require("stripe")(process.env.SECRET_KEY);
 
 app.use(cors());
 app.use(express.json());
@@ -84,6 +84,7 @@ async function run() {
         const adverticeCollection = client.db("OldMarket").collection("adverticeCollection");
         const sellCollection = client.db("OldMarket").collection("sellCollection");
         const paymentsCollection = client.db("OldMarket").collection("paymentsCollection");
+        const blogsCollection = client.db("OldMarket").collection("blogsCollection");
 
 
         function verifyAdmin(req, res, next) {
@@ -528,9 +529,12 @@ async function run() {
             res.send(result)
         })
 
-
-
-
+        // for blog api 
+        app.get('/blogs', async (req, res) => {
+            const query = {};
+            const result = await blogsCollection.find(query).toArray();
+            res.send(result)
+        })
 
     }
     finally {
