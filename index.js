@@ -3,13 +3,12 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const jwt = require('jsonwebtoken');
-const { query } = require('express');
 require('dotenv').config();
-
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+const stripe = require("stripe")('sk_test_51M6TOhLZ8s0yewmCKIERlWDqgmuV0dUPMcqr6t68lquLbV9ES0l7wH2zsYyXgZUjwvvhxFeUujmMHDWRGVOZnxSM00E1Hd7kmq');
 
 
 app.get('/', async (req, res) => {
@@ -103,8 +102,20 @@ async function run() {
             const query = {
                 sellerEmail: email
             }
-            const result = await productsCollection.find(query).toArray();
-            res.send(result)
+            const products = await productsCollection.find(query).toArray();
+            const paid = products.filter(product => product.paying !== 'Paid')
+            res.send(paid)
+        })
+
+
+        app.get('/soldProducts', verifyJWT, verifySeller, async (req, res) => {
+            const email = req.decoded.email;
+            const query = {
+                sellerEmail: email
+            }
+            const products = await productsCollection.find(query).toArray();
+            const paid = products.filter(product => product.paying === 'Paid')
+            res.send(paid)
             // console.log(result, email)
         })
 
@@ -138,13 +149,38 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/allAdvertise', verifyJWT, verifyAdmin, async (req, res) => {
+            const findItem = await adverticeCollection.find({}).toArray();
+            res.send(findItem)
+            // console.log(findItem)
+        })
+
+        app.delete('/advertise', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.query.id;
+            const query = { _id: ObjectId(id) };
+            const result = await adverticeCollection.deleteOne(query);
+            res.send(result)
+            // console.log()
+        })
+
+
+        app.get('/advProduct', async (req, res) => {
+            const result = await adverticeCollection.find({}).toArray();
+            res.send(result)
+            // console.log(result)
+        })
+
+
+
         app.get('/brand/:brandName', async (req, res) => {
             const brandName = req.params.brandName;
             // console.log(brandName)
             const query = {
                 brand: brandName
             }
-            const result = await productsCollection.find(query).toArray();
+            const products = await productsCollection.find(query).toArray();
+            const result = products.filter(product => product.paying !== 'paid')
+            // console.log(result)
             res.send({ result, brandName })
         })
 
@@ -166,6 +202,32 @@ async function run() {
             // console.log(users)
             res.send(users);
         })
+
+        app.delete('/user', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.query.id;
+            const query = {
+                _id: ObjectId(id)
+            }
+            const usersFromCollection = await usersCollection.find(query);
+            const productQuery = {
+                sellerEmail: usersFromCollection.email
+            }
+            const product = await productsCollection.find(productQuery).toArray();
+            if (product.length > 1) {
+                const anyProduct = await productsCollection.deleteMany(productQuery)
+            }
+            const anyProduct = await productsCollection.deleteOne(productQuery)
+
+            const advertise = await adverticeCollection.find(productQuery).toArray();
+            if (advertise.length > 1) {
+                const advPxroduct = await adverticeCollection.deleteMany(productQuery)
+            }
+            const advPxroduct = await adverticeCollection.deleteOne(productQuery)
+
+            const result = await usersCollection.deleteOne(query);
+            res.send(result)
+        })
+
 
         app.get('/allSeller', verifyJWT, verifyAdmin, async (req, res) => {
             const usersFromCollection = await usersCollection.find({}).toArray();
@@ -196,6 +258,10 @@ async function run() {
                 email: email
             }
             const result = await usersCollection.findOne(filter);
+            const noStatus = 'noVerify';
+            if (result === null) {
+                return res.json(noStatus)
+            }
             const status = result.sellerStatus;
             // console.log(status)
             res.json(status);
@@ -248,13 +314,53 @@ async function run() {
                 $set: { paying: 'Unpaid' },
             }
             const updateProduct = await productsCollection.updateOne(filter, updateDoc, options);
+            const adv = await adverticeCollection.findOne(filter);
+            if (adv) {
+                const adv = await adverticeCollection.deleteOne(filter);
+            }
             const isertProduct = await sellCollection.insertOne(booking);
+
+            // REMOVE FROM ADV 
 
             if (isertProduct) {
                 res.send(result)
             }
 
         })
+
+        // payment 
+
+        app.get('/payment/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = {
+                productId: id
+            }
+            const result = await bookingCollection.findOne(query);
+            res.send(result)
+            // console.log(id, result)
+        })
+
+        app.post("/payment/intent", async (req, res) => {
+            const price = req.query.price;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                // automatic_payment_methods: {
+                //     enabled: true,
+                // }
+                payment_method_types: [
+                    "card"
+                ]
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        })
+
+
+
 
         app.get('/booking', verifyJWT, async (req, res) => {
             const decoded = req.decoded;
