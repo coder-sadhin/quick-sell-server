@@ -176,13 +176,31 @@ async function run() {
 
         // seller verification section 
         app.put('/sellerVerify/:id', verifyJWT, verifyAdmin, async (req, res) => {
-            // const id = req.query.id;
-            console.log('hit koracha')
-            // const usersFromCollection = await usersCollection.find({}).toArray();
-            // const users = usersFromCollection.filter(user => user.userType === 'seller')
-            // // console.log(users)
-            // res.send(users);
+            const id = req.params.id;
+            // console.log(id)
+            const filter = {
+                _id: ObjectId(id)
+            }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: { sellerStatus: 'verify' },
+            }
+            const result = await usersCollection.updateOne(filter, updateDoc, options);
+            res.send(result);
         })
+        //check seller verivication
+        app.get('/sellerVerify', async (req, res) => {
+            const email = req.query.email;
+            // console.log(id)
+            const filter = {
+                email: email
+            }
+            const result = await usersCollection.findOne(filter);
+            const status = result.sellerStatus;
+            // console.log(status)
+            res.json(status);
+        })
+
 
         // this section for user login and registration 
 
