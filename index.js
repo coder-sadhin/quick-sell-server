@@ -4,17 +4,51 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const nodemailer = require('nodemailer')
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")('sk_test_51M6TOhLZ8s0yewmCKIERlWDqgmuV0dUPMcqr6t68lquLbV9ES0l7wH2zsYyXgZUjwvvhxFeUujmMHDWRGVOZnxSM00E1Hd7kmq');
 
 app.use(cors());
 app.use(express.json());
-const stripe = require("stripe")(process.env.SECRET_KEY);
 
 
 app.get('/', async (req, res) => {
     res.send('Mobile server is running')
 })
 
+
+// let transporter = nodemailer.createTransport({
+//     service: "gmail",
+//     auth: {
+//         type: "OAuth2",
+//         user: process.env.EMAIL,
+//         pass: process.env.WORD,
+//         clientId: process.env.OAUTH_CLIENTID,
+//         clientSecret: process.env.OAUTH_CLIENT_SECRET,
+//         refreshToken: process.env.OAUTH_REFRESH_TOKEN,
+//     },
+// });
+
+// transporter.verify((err, success) => {
+//     err
+//         ? console.log(err)
+//         : console.log(`=== Server is ready to take messages: ${success} ===`);
+// });
+
+// let mailOptions = {
+//     from: "codersadhin@gmail.com",
+//     to: process.env.EMAIL,
+//     subject: "Nodemailer API",
+//     text: "Hi from your nodemailer API",
+// };
+
+// transporter.sendMail(mailOptions, function (err, data) {
+//     if (err) {
+//         console.log("Error " + err);
+//     } else {
+//         console.log("Email sent successfully");
+//     }
+// });
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.bbbtstv.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -49,6 +83,7 @@ async function run() {
         const reportCollection = client.db("OldMarket").collection("reportCollection");
         const adverticeCollection = client.db("OldMarket").collection("adverticeCollection");
         const sellCollection = client.db("OldMarket").collection("sellCollection");
+        const paymentsCollection = client.db("OldMarket").collection("paymentsCollection");
 
 
         function verifyAdmin(req, res, next) {
@@ -163,6 +198,16 @@ async function run() {
             // console.log()
         })
 
+        app.delete('/allProduct', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.query.id;
+            const query = { _id: ObjectId(id) };
+            const result = await productsCollection.deleteOne(query);
+            res.send(result)
+            // console.log()
+        })
+
+
+
 
         app.get('/advProduct', async (req, res) => {
             const result = await adverticeCollection.find({}).toArray();
@@ -208,7 +253,7 @@ async function run() {
             const query = {
                 _id: ObjectId(id)
             }
-            const usersFromCollection = await usersCollection.find(query);
+            const usersFromCollection = await usersCollection.findOne(query);
             const productQuery = {
                 sellerEmail: usersFromCollection.email
             }
@@ -226,6 +271,8 @@ async function run() {
 
             const result = await usersCollection.deleteOne(query);
             res.send(result)
+
+            // console.log(product.length, advertise)
         })
 
 
@@ -341,25 +388,51 @@ async function run() {
         })
 
         app.post("/payment/intent", async (req, res) => {
-            const price = req.query.price;
-            const amount = price * 100;
-
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: amount,
-                currency: "usd",
-                // automatic_payment_methods: {
-                //     enabled: true,
-                // }
-                payment_method_types: [
-                    "card"
-                ]
-            });
-            res.send({
-                clientSecret: paymentIntent.client_secret,
-            });
+            // console.log('hit')
+            try {
+                const { price } = req.body
+                const amount = price * 100
+                const paymentIntent = await stripe.paymentIntents.create({
+                    currency: 'usd',
+                    amount: amount,
+                    "payment_method_types": [
+                        "card"
+                    ]
+                })
+                // console.log(paymentIntent)
+                res.send({
+                    success: true,
+                    message: 'Successfully stripe payment created',
+                    clientSecret: paymentIntent.client_secret
+                })
+            } catch (error) {
+                console.log(error)
+                res.send({
+                    success: false,
+                    error: error.message
+                })
+            }
         })
 
+        app.post('/paymentsStore', verifyJWT, async (req, res) => {
+            const paymentInfo = req.body;
+            const id = paymentInfo.productId;
+            const filter = {
+                _id: ObjectId(id)
+            }
+            const filter2 = {
+                productId: id
+            }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: { paying: 'paid' },
+            }
+            const update = await productsCollection.updateOne(filter, updateDoc, options);
+            const update2 = await bookingCollection.updateOne(filter2, updateDoc, options);
 
+            const result = await paymentsCollection.insertOne(paymentInfo);
+            res.send(result)
+        })
 
 
         app.get('/booking', verifyJWT, async (req, res) => {
